@@ -1,0 +1,90 @@
+name: odoo
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+    # Build when there are changes in the directory that holds the component,
+    # or when this workflow file is changed
+    - 'odoo/**'
+    - '.github/workflows/odoo.yml'
+  schedule:
+    # A weekly build to pick up updates to the base container image
+    # A weekday at mid-day - when someone is likely to be working (avoid bank holidays)
+    - cron: "0 12 * * 3"
+  workflow_dispatch:
+    inputs:
+      update_component:
+        description: 'Whether the workflow should attempt to update the deployment'
+        required: true
+        default: 'no'
+
+jobs:
+  deploy:
+    name: Build container image
+    runs-on: ubuntu-latest
+    env:
+      component: odoo
+
+    steps:
+
+    - uses: actions/checkout@v2
+
+
+    - uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-2
+
+    - uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Work out the Docker image tag for this branch
+      id: docker_tag
+      shell: bash
+      run: |
+        # Use the branch name as the image tag:
+        BRANCH=${GITHUB_REF##*/}
+        echo "##[set-output name=tag;]$(echo $BRANCH)"
+
+    - name: Build image
+      working-directory: ${{ env.component }}
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.component }}
+        TAG: ${{ steps.docker_tag.outputs.tag }}
+      run: |
+        COMMIT_HASH=$(git rev-parse HEAD)
+        docker build --build-arg COMMIT_HASH=$COMMIT_HASH -t $ECR_REGISTRY/$ECR_REPOSITORY:$TAG .
+
+    - name: Push image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: ${{ env.component }}
+        IMAGE_TAG: ${{ steps.docker_tag.outputs.tag }}
+      run: |
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$TAG
+
+    - name: Deploy container image
+      if: ${{ github.event.inputs.update_component != 'no' }}
+      env:
+        CLUSTER_ARN: ${{ secrets.CLUSTER_ARN }}
+        SERVICE: ${{ env.component }}
+      run: |
+        aws ecs update-service --cluster ${CLUSTER_ARN} --service ${SERVICE} --force-new-deployment
+
+    - name: Skip deployment
+      if: ${{ github.event.inputs.update_component == 'no' }}
+      run: |
+        echo Skipping deployment.
+
+    # - name: Slack Notification
+    #   uses: rtCamp/action-slack-notify@v2
+    #   env:
+    #     SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    #     SLACK_USERNAME: Pingmyhouse build
+    #     SLACK_COLOR: ${{ job.status }}
+    #     SLACK_ICON_EMOJI: ":house:"
+    #     SLACK_FOOTER: Github Actions
+    #   if: failure()
