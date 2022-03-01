@@ -17,7 +17,7 @@ You will need the following setup:
 To get started with development:
 
  * Activate the virtual environment: `source .venv/bin/activate`
- * Install dependencies by running: `pip install -r requirements.txt`
+ * Install/upgrade dependencies by running: `pip install --upgrade -r requirements.txt`
  * Edit infrastructure code in: `./eleos/eleos_stacl.py`
  * Check differences to be deployed by running: `cdk diff`
  * Deploy infrastructure changes by running `cdk deploy`
