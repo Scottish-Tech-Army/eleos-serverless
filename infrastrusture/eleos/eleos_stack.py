@@ -20,6 +20,8 @@ class EleosStack(Stack):
             repository_name="eleos",
             removal_policy=RemovalPolicy.DESTROY)
 
+        # See: https://docs.aws.amazon.com/cdk/api/v1/python/aws_cdk.aws_ecs_patterns/ApplicationLoadBalancedFargateService.html
+
         task_image_options = aws_ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
             image=aws_ecs.ContainerImage.from_registry(
                 name=ecr_repository.repository_name),
