@@ -6,7 +6,8 @@ from aws_cdk import (
     aws_ecs_patterns as ecs_patterns, 
     aws_ec2 as ec2,
     aws_rds as rds,
-    aws_efs as efs
+    aws_efs as efs,
+    #aws_iam as iam,
 )
 from constructs import Construct
 
@@ -47,12 +48,13 @@ class EleosStack(Stack):
 
         # task image options for Fargate service references odoo docker hub image
         task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-            image=ecs.ContainerImage.from_registry("odoo:latest"), 
+            image=ecs.ContainerImage.from_registry("odoo:latest"),
+            container_name="odooContainer",
             container_port=8069,
             secrets={"POSTGRES_PASSWORD":dbpassword},
             environment={"DB_PORT_5432_TCP_ADDR":endpointaddress}
             )
-        
+
         '''
         # task image options for Fargate service references local odoo Dockerfile & conf
         task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
@@ -66,26 +68,7 @@ class EleosStack(Stack):
                 )
         '''
 
-        # Fargate Service for odoo docker image with auto load balancer
-        application = ecs_patterns.ApplicationLoadBalancedFargateService(self, 
-            "odooFargateService",
-            cluster=cluster,            # Required
-            cpu=512,                    # Default is 256
-            desired_count=2,            # Default is 1
-            memory_limit_mib=1024,      # Default is 512
-            public_load_balancer=True,  # Default is False
-            assign_public_ip=True,
-            task_image_options=task_image_options,
-            )
-
-        # connections - allows traffic between the default, automatically created security groups
-        dbport = dbcluster.connections.default_port
-        dbcluster.connections.allow_default_port_from(application.service)
-        #dbcluster.connections.allow_default_port_from_any_ipv4
-
-        application.cluster.connections.allow_to(dbcluster, port_range=dbport) #?? not sure if needed
-
-        # EFS for "What Odoo stores on the file system are the application's static assets, 
+        # Create EFS storage for "What Odoo stores on the file system are the application's static assets, 
         # such as JavaScript and CSS files, and session context files."
         file_system = efs.FileSystem(self, "odooEfsFileSystem",
             vpc=vpc,
@@ -94,6 +77,67 @@ class EleosStack(Stack):
             out_of_infrequent_access_policy=efs.OutOfInfrequentAccessPolicy.AFTER_1_ACCESS,
             removal_policy=RemovalPolicy.DESTROY # dev
             )
+        
+        # efs access point - - check
+        access_point = efs.AccessPoint(self, "odooEfsAccessPoint",
+            file_system=file_system,
+            path="/var/lib/odoo",
+            create_acl=efs.Acl(
+                owner_uid="2000",
+                owner_gid="2000",
+                permissions="750"
+                ),
+            posix_user=efs.PosixUser(
+                uid="2000",
+                gid="2000"
+                )
+            )
+
+        # Define a volume
+        odoo_volume = ecs.Volume(name="odooVolume",
+            efs_volume_configuration=ecs.EfsVolumeConfiguration(
+                file_system_id=file_system.file_system_id,
+                authorization_config=access_point.access_point_id
+                )
+            )
+ 
+        # Fargate Service for odoo docker image with auto load balancer
+        application = ecs_patterns.ApplicationLoadBalancedFargateService(self, 
+            "odooFargateService",
+            cluster=cluster,            # Required
+            cpu=512,                    # Default is 256
+            desired_count=2,            # Default is 1 suggested is 2
+            min_healthy_percent=50,     # Default is 50% of desired count
+            memory_limit_mib=1024,      # Default is 512
+            public_load_balancer=True,  # Default is False
+            assign_public_ip=True,
+            task_image_options=task_image_options,
+            #task_definition=task_definition,
+            platform_version=ecs.FargatePlatformVersion.VERSION1_4, # latest may be 1_3 which may be issue with efs mount
+            )
+        
+        # add the volume - check
+        application.task_definition.add_volume(name=odoo_volume.name)
+
+        # mount the volume
+        application.task_definition.default_container.add_mount_points(
+            ecs.MountPoint(
+                container_path="/var/lib/odoo",
+                read_only=False,
+                source_volume=odoo_volume.name
+                )
+            )
+
+        # enable sticky sessions
+        application.target_group.enable_cookie_stickiness(duration=Duration.hours(12))
+
+        # connections - allows traffic between the default, automatically created security groups
+        dbport = dbcluster.connections.default_port
+        dbcluster.connections.allow_default_port_from(application.service)
+        #dbcluster.connections.allow_default_port_from_any_ipv4
+
+        application.cluster.connections.allow_to(dbcluster, port_range=dbport) #?? not sure if needed
+        application.cluster.connections.allow_to(file_system, port_range=file_system.connections.default_port)
         
         file_system.connections.allow_default_port_from(application.service)
         #file_system.connections.allow_default_port_to(application.service)
