@@ -1,4 +1,3 @@
-from re import match
 import aws_cdk as core
 from aws_cdk.assertions import Template, Match
 from eleos.eleos_stack import EleosStack

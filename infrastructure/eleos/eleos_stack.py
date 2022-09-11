@@ -13,7 +13,7 @@ from constructs import Construct
 
 class EleosStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, odoo_version: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
     
         # VPC
@@ -47,7 +47,8 @@ class EleosStack(Stack):
         
         # task image options for Fargate service references odoo docker hub image
         task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-            image=ecs.ContainerImage.from_registry("odoo:latest"),
+            #image=ecs.ContainerImage.from_registry("odoo:latest"),
+            image=ecs.ContainerImage.from_registry(odoo_version),
             container_name="odooContainer",
             container_port=8069,
             secrets={"POSTGRES_PASSWORD":dbpassword},
