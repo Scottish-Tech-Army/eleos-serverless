@@ -1,21 +1,46 @@
 #!/usr/bin/env python3
-import os
 
-import aws_cdk as cdk
-
+#import aws_cdk as cdk
+from aws_cdk import App, Stack, Tags, Environment
 from eleos.eleos_stack import EleosStack
 
+# regions
+london = 'eu-west-2'
+# account numbers
+dev_test_acc = '113725134633'
+##### other account numbers to be added here
 
+# Odoo version
+odoo_15 = 'odoo:15'
+odoo_14 = 'odoo:14'
 
-app = cdk.App()
-EleosStack(app, 'Eleos15',
-    env=cdk.Environment(account='113725134633', region='eu-west-2'),
-    odoo_version = "odoo:latest",
+# Environments
+dev = 'dev'
+test = 'test'
+stage = 'stage' #?
+prod = 'prod'
+
+# name account - odoo version - environment
+
+app = App()
+
+# dev-test account
+Eleos_test_stack = EleosStack(app, 
+    'dev-test-15-test', # this is the construct_id used to call the stack
+    env=Environment(account=dev_test_acc, region=london),
+    odoo_version = odoo_15,
+    environ = test,
     )
-EleosStack(app, 'Eleos14',
-    env=cdk.Environment(account='113725134633', region='eu-west-2',),
-    odoo_version = "odoo:14",
+
+Eleos_dev_stack = EleosStack(app,
+    'dev-test-15-dev',
+    env=Environment(account=dev_test_acc, region=london,),
+    odoo_version = odoo_15,
+    environ = dev,
     )
+
+Tags.of(Eleos_test_stack).add('tag', 'TEST')
+Tags.of(Eleos_dev_stack).add('tag', 'DEV')
 
 app.synth()
     # If you don't specify 'env', this stack will be environment-agnostic.

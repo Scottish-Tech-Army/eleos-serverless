@@ -2,18 +2,20 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     Stack,
+    Tags,
     aws_ecs as ecs, 
     aws_ecs_patterns as ecs_patterns, 
     aws_ec2 as ec2,
     aws_rds as rds,
     aws_efs as efs,
     aws_iam as iam,
+    cloudformation_include as cfn_inc
 )
 from constructs import Construct
 
 class EleosStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, odoo_version: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, odoo_version: str, environ: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
     
         # VPC
@@ -47,7 +49,6 @@ class EleosStack(Stack):
         
         # task image options for Fargate service references odoo docker hub image
         task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-            #image=ecs.ContainerImage.from_registry("odoo:latest"),
             image=ecs.ContainerImage.from_registry(odoo_version),
             container_name="odooContainer",
             container_port=8069,
@@ -66,7 +67,6 @@ class EleosStack(Stack):
            container_port=8069 
                 )
         '''
-
         # Create EFS storage for "What Odoo stores on the file system are the application's static assets, 
         # such as JavaScript and CSS files, and session context files."
         file_system = efs.FileSystem(self, "odooEfsFileSystem",
@@ -96,7 +96,7 @@ class EleosStack(Stack):
         application = ecs_patterns.ApplicationLoadBalancedFargateService(self, 
             "odooFargateService",
             cluster=cluster,            # Required
-            cpu=512,                    # Default is 256
+            cpu=1024,                    # Default is 256
             desired_count=2,            # Default is 1 suggested is 2
             min_healthy_percent=50,     # Default is 50% of desired count
             memory_limit_mib=2048,      # Default is 512
@@ -120,7 +120,7 @@ class EleosStack(Stack):
                 )
             )
         
-        # mount the volume
+        # add mount point for Odoo's data dir
         application.task_definition.default_container.add_mount_points(
             ecs.MountPoint(
                 container_path="/var/lib/odoo",
@@ -157,3 +157,20 @@ class EleosStack(Stack):
         application.service.connections.allow_from(file_system, port_range=efsport)
    
         file_system.connections.allow_default_port_from(application.service) ## ## ### ## #
+
+        ## Changes in development environ can be added here
+        if environ == 'dev':
+            
+            # add mount point for Odoo's custom modules dir
+            application.task_definition.default_container.add_mount_points(
+            ecs.MountPoint(
+                container_path='/mnt/extra-addons',
+                read_only=False,
+                source_volume=volume_name  # must match name string in add_volume
+                )
+            )
+        
+            file_manager_template = cfn_inc.CfnInclude(self, 'fmtemplate',
+                template_file = 'simple-file-manager-for-amazon-efs.template',
+                #parameters={'AdminEmail':'?????????????????'}
+                )

@@ -1,0 +1,4 @@
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=https://aws.amazon.com/
+HostUrl=https://solutions-reference.s3.amazonaws.com/simple-file-manager-for-amazon-efs/latest/simple-file-manager-for-amazon-efs.template
