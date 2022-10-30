@@ -14,8 +14,8 @@ You will need the following setup:
  * Install the AWS CDK: `npm install --global aws-cdk`
  * To generate a new project, make and move into a new directory, run: `cdk init app --language python`
  * Activate the virtual environment: `source .venv/bin/activate`
- * Install/upgrade dependencies by running: `pip install --upgrade -r requirements.txt`
- * To be able to run tests with pytest run `pip install --upgrade -r requirements-dev.txt`
+ * Install/upgrade dependencies by running: `python -m pip install --upgrade -r requirements.txt`
+ * To be able to run tests with pytest run `python -m pip install --upgrade -r requirements-dev.txt`
  * The entry point for the app will be: `./app.py`
 
 ## To work with the lastest code in this repo
@@ -26,8 +26,8 @@ You will need the following setup:
  * Move into the infrastructure directory, where the cdk code is kept `cd infrastructure`
  * Create a virtual environment as .venv `python -m venv .venv`
  * Activate the virtual environment with `source .venv/bin/activate`
- * Install/upgrade dependencies by running: `pip install --upgrade -r requirements.txt`
- * To be able to run tests with pytest also run `pip install --upgrade -r requirements-dev.txt`
+ * Install/upgrade dependencies by running: `python -m pip install --upgrade -r requirements.txt`
+ * To be able to run tests with pytest also run `python -m pip install --upgrade -r requirements-dev.txt`
  * Continue to Development below
 
 ## Development
@@ -35,13 +35,17 @@ You will need the following setup:
 To get started with development:
 
  * Activate the virtual environment if it is not already active `source .venv/bin/activate`
- * Edit infrastructure code in: `./eleos/eleos_stack.py`
- * Synthesise the CloudFormation template with `cdk synth`
- * Check differences to be deployed by running: `cdk diff`
- * Deploy infrastructure changes by running `cdk deploy`
+ * Edit infrastructure code.
+ * Login to AWS and copy CLI credentials into terminal.
+ * Check current logged in account, region and deployment status of stacks with `python list_stacks.py`
+ * List stacks available in the cdk code with `cdk ls` (compare with already deployed stacks above).
+ * Synthesise the CloudFormation template with `cdk synth nameofstack` for stacks not yet deployed.
+ * Check differences to be deployed by running: `cdk diff nameofstack` for stacks already deployed.
+ * Deploy infrastructure changes by running `cdk deploy nameofstack`
+ * Stack naming convention 'account-odooversion-environment'
 
 ## Tidy Up when you have finished
- * Destroy the deployed app with `cdk destroy` in development to avoid extra costs
+ * Destroy the deployed app with `cdk destroy nameofstack` in development to avoid extra costs
  * Deactivate the vitual environment `deactivate`
 
 NB you will need to have AWS credentials to run `cdk deploy`.

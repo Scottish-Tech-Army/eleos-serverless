@@ -1,19 +1,13 @@
-#!/usr/bin/env python3
-
 ## Helpful to list stacks that are deployed in AWS for the current account and region, 
-## see their status and retrieve their outputs without having to go to the 
+    ## see their status and retrieve their outputs without having to go to the 
 ## AWS Managament Console.
 ## Tim Wornell
 
-from subprocess import getoutput
-from json import loads
+import boto3
 
-## aws cli command to list deployed stacks, outputs json string
-list_stacks = getoutput(["aws cloudformation describe-stacks"])
+client = boto3.client('cloudformation')
 
-## parse json string into python dict
-stacks = loads(list_stacks)
-#print(list_stacks)
+stacks = client.describe_stacks()
 
 ## create labels and set to display as green text
 label = ['  status:  ', '    created:  ', 'Stack Name: ', 'Description: ', 'Updated: ', ' at: ',
@@ -32,11 +26,12 @@ print(f'\x1b[0;30;42m *           Account: {account}              * \x1b[0m')
 print('\x1b[0;30;42m ************************************************ \x1b[0m')
 #print('\x1b[0m')
 
+
 ## print list of stacks
 for i in range(len(stacks['Stacks'])):
     print(f' {i}: '+stacks['Stacks'][i]['StackName']
             +label[0]+stacks['Stacks'][i]['StackStatus']
-            +label[1]+stacks['Stacks'][i]['CreationTime'][:10])
+            +label[1]+stacks['Stacks'][i]['CreationTime'].strftime('%d/%m/%Y'))
 
 ## take stack number as input and display select information
 while True:
@@ -56,8 +51,8 @@ while True:
         except:
             pass
         try:
-            print(label[4]+stacks['Stacks'][item]['LastUpdatedTime'][:10]
-            +label[5]+stacks['Stacks'][item]['LastUpdatedTime'][11:19])
+            print(label[4]+stacks['Stacks'][item]['LastUpdatedTime'].strftime('%d/%m/%Y')
+            +label[5]+stacks['Stacks'][item]['LastUpdatedTime'].strftime('%H:%M:%S'))
         except:
             pass
         try:

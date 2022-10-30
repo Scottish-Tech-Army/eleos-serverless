@@ -9,7 +9,8 @@ from aws_cdk import (
     aws_rds as rds,
     aws_efs as efs,
     aws_iam as iam,
-    cloudformation_include as cfn_inc
+    aws_lambda as lambda_,
+    aws_apigateway as apigateway,
 )
 from constructs import Construct
 
@@ -19,7 +20,10 @@ class EleosStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
     
         # VPC
-        vpc = ec2.Vpc(self, "Vpc", max_azs=3)     # default is all AZs in region
+        vpc = ec2.Vpc(self, "Vpc", 
+            max_azs=2,   # default is all AZs in region = 3
+            nat_gateways=1
+            )
 
         # ecs cluster for odoo container
         cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
@@ -169,8 +173,15 @@ class EleosStack(Stack):
                 source_volume=volume_name  # must match name string in add_volume
                 )
             )
-        
-            file_manager_template = cfn_inc.CfnInclude(self, 'fmtemplate',
-                template_file = 'simple-file-manager-for-amazon-efs.template',
-                #parameters={'AdminEmail':'?????????????????'}
+
+            efs_lamda = lambda_.Function(self, 'efsConnectionAPI',
+                vpc=vpc,
+                filesystem=lambda_.FileSystem.from_efs_access_point(access_point, '/mnt/extra-addons'),
+                runtime=lambda_.Runtime.PYTHON_3_8,
+                code=lambda_.Code.from_asset('lambda'),
+                handler='efs_api.lambda_handler'
                 )
+            
+            EFS_api = apigateway.LambdaRestApi(self, 'EFSAccess',
+                handler=efs_lamda)
+            
