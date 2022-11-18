@@ -2,7 +2,6 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     Stack,
-    Tags,
     aws_ecs as ecs, 
     aws_ecs_patterns as ecs_patterns, 
     aws_ec2 as ec2,
@@ -11,6 +10,8 @@ from aws_cdk import (
     aws_iam as iam,
     aws_lambda as lambda_,
     aws_apigateway as apigateway,
+    aws_s3 as s3,
+    aws_lambda_event_sources as event_sources
 )
 from constructs import Construct
 
@@ -22,7 +23,7 @@ class EleosStack(Stack):
         # VPC
         vpc = ec2.Vpc(self, "Vpc", 
             max_azs=2,   # default is all AZs in region = 3
-            nat_gateways=1
+            #nat_gateways=1
             )
 
         # ecs cluster for odoo container
@@ -101,7 +102,9 @@ class EleosStack(Stack):
             "odooFargateService",
             cluster=cluster,            # Required
             cpu=1024,                    # Default is 256
-            desired_count=2,            # Default is 1 suggested is 2
+            ## Desired count must be 1 on first deployment to prevent DB create error in Odoo.
+            ## Can be increased to 2 for subsequent deployments. To do - automate this.
+            desired_count=1,            # Default is 1 suggested is 2
             min_healthy_percent=50,     # Default is 50% of desired count
             memory_limit_mib=2048,      # Default is 512
             public_load_balancer=True,  # Default is False
@@ -110,8 +113,9 @@ class EleosStack(Stack):
             health_check_grace_period=Duration.seconds(900), # Default is 60
             platform_version=ecs.FargatePlatformVersion.VERSION1_4, # must specify VERSION1_4 for efs to mount
             )
+
         
-        # add a volume
+        # creat an EFS volume
         volume_name = "odooVolume"
         application.task_definition.add_volume(name=volume_name,
             efs_volume_configuration=ecs.EfsVolumeConfiguration(
@@ -141,12 +145,11 @@ class EleosStack(Stack):
         #    )
         # or this way
         application.task_definition.add_to_task_role_policy(iam.PolicyStatement(actions=
-            ['elasticfilesystem:ClientWrite',
-            'elasticfilesystem:ClientRead'
-            ],
-            resources=[file_system.file_system_arn]
+                ['elasticfilesystem:ClientWrite',
+                'elasticfilesystem:ClientRead'
+                ],
+                resources=[file_system.file_system_arn])
             )
-        )
         
         # enable sticky sessions -- not needed now efs works
         #application.target_group.enable_cookie_stickiness(duration=Duration.hours(12))
@@ -160,28 +163,65 @@ class EleosStack(Stack):
         application.service.connections.allow_from(dbcluster, port_range=dbport)
         application.service.connections.allow_from(file_system, port_range=efsport)
    
-        file_system.connections.allow_default_port_from(application.service) ## ## ### ## #
+        file_system.connections.allow_default_port_from(application.service)
 
-        ## Changes in development environ can be added here
-        if environ == 'dev':
-            
-            # add mount point for Odoo's custom modules dir
-            application.task_definition.default_container.add_mount_points(
+#############################################################################################
+##                   Updates to install custom addons below.                             ##
+##########################################################################################
+        # add mount point for Odoo's custom modules dir - path from containers odoo.conf
+        application.task_definition.default_container.add_mount_points(
             ecs.MountPoint(
                 container_path='/mnt/extra-addons',
                 read_only=False,
                 source_volume=volume_name  # must match name string in add_volume
                 )
             )
+            
+        ## create s3 to add addons to
+        addon_bucket = s3.Bucket(self, 'AddonBucket',
+             bucket_name=f'addon-bucket-{environ}',
+            auto_delete_objects=True,
+            removal_policy=RemovalPolicy.DESTROY
+            )
 
-            efs_lamda = lambda_.Function(self, 'efsConnectionAPI',
+        ## Lambda to copy files from S3 to addons mount point
+        addon_lambda = lambda_.Function(self, 's3toEFSlambda',
+            vpc=vpc,
+            filesystem=lambda_.FileSystem.from_efs_access_point(access_point, '/mnt/extra-addons'),
+            runtime=lambda_.Runtime.PYTHON_3_8,
+            code=lambda_.Code.from_asset('addon_lambda'),
+            handler='addon_lambda.lambda_handler',
+            )
+
+        ## Event triggered when file added to bucket
+        upload_trigger = event_sources.S3EventSource(addon_bucket, 
+            events=[s3.EventType.OBJECT_CREATED])
+        ## lock event to lambda
+        addon_lambda.add_event_source(upload_trigger)            
+        
+        ## permissions
+        addon_bucket.grant_read_write(addon_lambda)
+        addon_lambda.add_to_role_policy(iam.PolicyStatement(actions=
+            ['elasticfilesystem:ClientWrite',
+            'elasticfilesystem:ClientRead'
+            ],
+            resources=[file_system.file_system_arn])
+            )
+
+#############################################################################################
+##                   Changes in development environment can be added here                  ##
+#############################################################################################
+        if environ == 'dev':
+        
+            # lambda with API for checking files in EFS (not secure!)
+            api_lambda = lambda_.Function(self, 'efsConnectionAPI',
                 vpc=vpc,
                 filesystem=lambda_.FileSystem.from_efs_access_point(access_point, '/mnt/extra-addons'),
                 runtime=lambda_.Runtime.PYTHON_3_8,
-                code=lambda_.Code.from_asset('lambda'),
+                code=lambda_.Code.from_asset('api_lambda'),
                 handler='efs_api.lambda_handler'
                 )
             
+            # API for api_lambda - checking filesystem events
             EFS_api = apigateway.LambdaRestApi(self, 'EFSAccess',
-                handler=efs_lamda)
-            
+                handler=api_lambda)

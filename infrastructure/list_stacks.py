@@ -1,5 +1,5 @@
 ## Helpful to list stacks that are deployed in AWS for the current account and region, 
-    ## see their status and retrieve their outputs without having to go to the 
+## see their status and retrieve their outputs without having to go to the 
 ## AWS Managament Console.
 ## Tim Wornell
 
@@ -18,6 +18,7 @@ for i in range(len(label)):
 region = stacks['Stacks'][0]['StackId'][23:32]
 account = stacks['Stacks'][0]['StackId'][33:45]
 
+print()
 #print('\x1b[0;30;42m') black on green!
 print('\x1b[0;30;42m ************************************************ \x1b[0m')
 print('\x1b[0;30;42m *              DEPLOYED STACKS                 * \x1b[0m')
@@ -25,7 +26,7 @@ print(f'\x1b[0;30;42m *             Region: {region}                * \x1b[0m')
 print(f'\x1b[0;30;42m *           Account: {account}              * \x1b[0m')
 print('\x1b[0;30;42m ************************************************ \x1b[0m')
 #print('\x1b[0m')
-
+print()
 
 ## print list of stacks
 for i in range(len(stacks['Stacks'])):
