@@ -24,7 +24,7 @@ test2 = 'test2' ##temp
 stage = 'stage'
 prod = 'prod'
 
-## naming convention  = account - odoo version - environment
+### naming convention  = account - odoo version - environment
 
 app = App()
 acc = pull_stacks()[2]
