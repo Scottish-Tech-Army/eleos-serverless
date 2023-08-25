@@ -17,5 +17,12 @@
     "eu-west-2a",
     "eu-west-2b",
     "eu-west-2c"
-  ]
+  ],
+  "ami:account=113725134633:filters.image-type.0=machine:filters.name.0=amzn-ami-vpc-nat-*:filters.state.0=available:owners.0=amazon:region=eu-west-2": "ami-07a70227afe5b989e",
+  "availability-zones:account=677304537696:region=eu-west-2": [
+    "eu-west-2a",
+    "eu-west-2b",
+    "eu-west-2c"
+  ],
+  "ami:account=677304537696:filters.image-type.0=machine:filters.name.0=amzn-ami-vpc-nat-*:filters.state.0=available:owners.0=amazon:region=eu-west-2": "ami-052331c60a2cf1f40"
 }
