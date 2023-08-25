@@ -67,7 +67,7 @@ def lambda_handler(event, context):
     unpack_zip(key)
     # use os to remove .zip from efs
     remove_zip(key)
-    dir_content = listdir(file_path)
+    #dir_content = listdir(file_path)
     
     # restart containers ??
     #restart_odoo()

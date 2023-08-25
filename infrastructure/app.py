@@ -10,57 +10,56 @@ london = 'eu-west-2'
 # account numbers
 dev_test_acc = '113725134633'
 lms_stag_prod_acc = '131458236732'
+tampontaxi_stag_prod = '677304537696'
 ##### other account numbers to be added here
 
-# Odoo version
-odoo_16 = 'odod:16'
+# Odoo versions
+odoo_16 = 'odoo:16'
 odoo_15 = 'odoo:15'
 odoo_14 = 'odoo:14'
 
 # Environments
 dev = 'dev'
 test = 'test'
-test2 = 'test2' ##temp
 stage = 'stage'
 prod = 'prod'
 
 ### naming convention  = account - odoo version - environment
 
 app = App()
-acc = pull_stacks()[2]
-alias = pull_stacks()[3]
-print(f'Working in account: {alias}')
-sleep(2)
+def get_account():
+    try:
+        account = pull_stacks()[2]
+        alias = pull_stacks()[3]
+        print(f'Working in account: {alias}')
+        return account
+        sleep(2)
+    except Exception as error:
+        print('Failed account check!')
+        print(f'{error}')
 
 ## Below are the stacks defined in each account, add remove or edit here ##
 
 ########################################################################
 #                       eleos-dev-test account                         #
 ########################################################################
+acc = get_account()
 if acc == dev_test_acc:
-    Eleos_test_stack = EleosStack(app, 
-        'dev-test-15-test', # this is the construct_id used to call the stack
+    Eleos_dev_stack2 = EleosStack(app,
+        'dev-test-16-dev', # this is the construct_id used to call the stack
         env=Environment(account=dev_test_acc, region=london),
-        odoo_version = odoo_15,
-        environ = test,
-        )
-
-    Eleos_test2_stack = EleosStack(app, 
-        'dev-test-15-test2',
-        env=Environment(account=dev_test_acc, region=london),
-        odoo_version = odoo_15,
-        environ = test2,
+        odoo_version = odoo_16,
+        environ = dev
         )
 
     Eleos_dev_stack = EleosStack(app,
-        'dev-test-15-dev',
+        'dev-test-14-dev',
         env=Environment(account=dev_test_acc, region=london),
-        odoo_version = odoo_15,
+        odoo_version = odoo_14,
         environ = dev,
         )
 
-    Tags.of(Eleos_test_stack).add('tag', 'TEST')
-    Tags.of(Eleos_test2_stack).add('tag', 'TEST2')
+    Tags.of(Eleos_dev_stack2).add('tag', 'ODOO 16 DEV')
     Tags.of(Eleos_dev_stack).add('tag', 'DEV')
 
 ########################################################################
@@ -73,10 +72,23 @@ if acc == lms_stag_prod_acc:
         odoo_version = odoo_15,
         environ = stage,
         )
+    
     Tags.of(Eleos_lms_stag_prod).add('tag', 'STAGE')
 
 ########################################################################
+#                      tampontaxi-stag-prod                            #
+########################################################################
+if acc == tampontaxi_stag_prod:
+    Eleos_tampontaxi_stag_prod = EleosStack(app,
+        'tampontaxi-stag-prod-14-stag',
+        env=Environment(account=tampontaxi_stag_prod, region=london),
+        odoo_version = odoo_14,
+        environ = stage,
+        )
+    
+    Tags.of(Eleos_tampontaxi_stag_prod).add('tag', 'STAG-SERVERLESS')
 
+########################################################################
 app.synth()
 
 
