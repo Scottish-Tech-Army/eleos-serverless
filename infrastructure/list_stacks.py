@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 ## Helpful to list stacks that are deployed in AWS for the current account and region,
 ## see their status and retrieve their outputs without having to go to the
